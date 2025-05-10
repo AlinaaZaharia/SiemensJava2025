@@ -1,4 +1,4 @@
-package com.siemens.internship;
+package com.siemens.internship.model;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
