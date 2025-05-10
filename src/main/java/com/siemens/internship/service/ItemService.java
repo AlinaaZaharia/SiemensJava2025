@@ -2,24 +2,32 @@ package com.siemens.internship.service;
 
 import com.siemens.internship.model.Item;
 import com.siemens.internship.repository.ItemRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+
 @Service
 public class ItemService {
-    @Autowired
-    private ItemRepository itemRepository;
-    private static final ExecutorService executor = Executors.newFixedThreadPool(10);
-    private final List<Item> processedItems = new ArrayList<>();
+
+    private static final Logger log = LoggerFactory.getLogger(ItemService.class);
+    private final ItemRepository itemRepository;
+    private final Executor executor;
+
+    private final List<Item> processedItems = Collections.synchronizedList(new ArrayList<>());
     private final AtomicInteger processedCount = new AtomicInteger(0);
 
+    public ItemService(ItemRepository itemRepository, @Qualifier("itemExecutor") Executor executor){
+        this.itemRepository = itemRepository;
+        this.executor = executor;
+    }
 
     public List<Item> findAll() {
         return itemRepository.findAll();
@@ -56,7 +64,7 @@ public class ItemService {
      * Examine how errors are handled and propagated
      * Consider the interaction between Spring's @Async and CompletableFuture
      */
-    @Async
+    @Async("itemExecutor")
     public CompletableFuture <List<Item>> processItemsAsync() {
 
         processedItems.clear();
@@ -73,7 +81,6 @@ public class ItemService {
                     if (item == null) {
                         return;
                     }
-                   //processedCount++;
                     processedCount.incrementAndGet();
 
                     item.setStatus("PROCESSED");
@@ -89,7 +96,13 @@ public class ItemService {
 
 
         return CompletableFuture.allOf(futures)
-                .thenApply(s -> {return new ArrayList<>(processedItems);
+                .<List<Item>>thenApply(s -> {
+                    log.info("Finished processing {} items", processedCount.get());
+                    return new ArrayList<>(processedItems);
+                })
+                .exceptionally(ex -> {
+                    log.error("Batch processing failed!", ex.getCause());
+                    throw new RuntimeException("Failed to process items!", ex.getCause());
                 });
     }
 }

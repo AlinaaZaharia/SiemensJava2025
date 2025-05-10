@@ -24,11 +24,13 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/items")
 public class ItemController {
 
-    @Autowired
     private ItemService itemService;
-
-    @Autowired
     private EmailValidatorRegex emailValidatorReg;
+
+    public ItemController(ItemService itemService, EmailValidatorRegex emailValidator) {
+        this.itemService = itemService;
+        this.emailValidatorReg = emailValidator;
+    }
 
     @GetMapping
     public ResponseEntity<List<Item>> getAllItems() {
@@ -39,7 +41,6 @@ public class ItemController {
     @PostMapping
     public ResponseEntity<?> createItem(@Valid @RequestBody Item item, BindingResult result) {
         if (result.hasErrors()) {
-            //return new ResponseEntity<>(null, HttpStatus.CREATED);
             Map<String, String> errors = result.getFieldErrors().stream().collect(Collectors.toMap(
                     FieldError::getField,
                     FieldError::getDefaultMessage
@@ -55,7 +56,7 @@ public class ItemController {
         }
 
         Item savedItem = itemService.save(item);
-        URI uri = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id")
+        URI uri = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}")
                 .buildAndExpand(savedItem.getId()).toUri();
         return ResponseEntity.created(uri).body(savedItem);
     }
@@ -71,10 +72,13 @@ public class ItemController {
 
     @PutMapping("/{id}")
     public ResponseEntity<?> updateItem(@PathVariable Long id, @Valid @RequestBody Item item, BindingResult result) {
+        Item existingItem = itemService.findById(id)
+                .orElseThrow(() -> new ItemNotFoundException(id));
+
         if (result.hasErrors()) {
             Map<String, String> errors = result.getFieldErrors().stream().collect(Collectors.toMap(
-                    err -> err.getField(),
-                    err -> err.getDefaultMessage()
+                    FieldError::getField,
+                    FieldError::getDefaultMessage
             ));
             return ResponseEntity.badRequest().body(errors);
         }
@@ -86,8 +90,6 @@ public class ItemController {
                     .body(Map.of("email", ex.getMessage()));
         }
 
-        Item existingItem = itemService.findById(id)
-                .orElseThrow(() -> new ItemNotFoundException(id));
         BeanUtils.copyProperties(item, existingItem, "id");
         Item updated = itemService.save(existingItem);
         return ResponseEntity.ok(updated);
