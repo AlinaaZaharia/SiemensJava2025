@@ -3,6 +3,7 @@ package com.siemens.internship.controller;
 import com.siemens.internship.exceptions.ItemNotFoundException;
 import com.siemens.internship.model.Item;
 import com.siemens.internship.service.ItemService;
+import com.siemens.internship.validator.EmailValidatorRegex;
 import jakarta.validation.Valid;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,9 @@ public class ItemController {
     @Autowired
     private ItemService itemService;
 
+    @Autowired
+    private EmailValidatorRegex emailValidatorReg;
+
     @GetMapping
     public ResponseEntity<List<Item>> getAllItems() {
         return new ResponseEntity<>(itemService.findAll(), HttpStatus.OK);
@@ -42,6 +46,14 @@ public class ItemController {
             ));
         return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
         }
+
+        try{
+            emailValidatorReg.validate(item);
+        } catch(IllegalArgumentException ex){
+            return ResponseEntity.badRequest()
+                    .body(Map.of("email", ex.getMessage()));
+        }
+
         Item savedItem = itemService.save(item);
         URI uri = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id")
                 .buildAndExpand(savedItem.getId()).toUri();
@@ -65,6 +77,13 @@ public class ItemController {
                     err -> err.getDefaultMessage()
             ));
             return ResponseEntity.badRequest().body(errors);
+        }
+
+        try{
+            emailValidatorReg.validate(item);
+        } catch(IllegalArgumentException ex){
+            return ResponseEntity.badRequest()
+                    .body(Map.of("email", ex.getMessage()));
         }
 
         Item existingItem = itemService.findById(id)
