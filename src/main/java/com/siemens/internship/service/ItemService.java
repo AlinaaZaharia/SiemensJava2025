@@ -14,6 +14,26 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
+/**
+ * Before, we had ArrayList and int counter, so threads could clash,
+ * we fired off async tasks with CompletableFuture.runAsync but returned the list immediately (incomplete results),
+ * only printed InterruptedException and used a static pool without Spring support.
+ *
+ * What I changed:
+ * - I used Collections.synchronizedList and AtomicInteger to guard shared data across threads.
+ * - I used CompletableFuture.runAsync(..., executor) to schedule each task on our Spring-configured pool ('itemExecutor')
+ * - I collected all futures and used CompletableFuture.allOf(...) to wait for every task to finish
+ * - Used exceptionally() to catch and rethrow errors so failures bubble up to callers
+ * - Restored interrupt flag and threw an unchecked exception on interruption
+ * - I added SLF4J logging for progress and errors
+ * - Cleared/reset shared state at the start and returned a copy of results to avoid exposing internal lists
+ *
+ * I based the async flow on Baeldung’s guides:
+ *   - Guide to CompletableFuture: https://www.baeldung.com/java-completablefuture
+ *   - Working with Exceptions in CompletableFuture: https://www.baeldung.com/java-exceptions-completablefuture
+ */
+
+
 @Service
 public class ItemService {
 
@@ -97,7 +117,7 @@ public class ItemService {
 
         return CompletableFuture.allOf(futures)
                 .<List<Item>>thenApply(s -> {
-                    log.info("Finished processing {} items", processedCount.get());
+                    log.info("Finished processing {} items.", processedCount.get());
                     return new ArrayList<>(processedItems);
                 })
                 .exceptionally(ex -> {

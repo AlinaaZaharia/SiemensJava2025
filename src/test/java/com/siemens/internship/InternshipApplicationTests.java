@@ -64,8 +64,9 @@ class InternshipApplicationTests {
 	}
 
 
+	// test for creating an item (HTTP 201)
 	@Test
-	void createItem_shouldReturn201_andLocationHeader() throws Exception {
+	void createItemReturns201() throws Exception {
 		Item in = new Item(null, "TestName", "Descriere", "NEW", "ana_maria12@yahoo.com");
 		String payload = objectMapper.writeValueAsString(in);
 
@@ -79,16 +80,18 @@ class InternshipApplicationTests {
 	}
 
 
+	// test for GET empty list when no items exist
 	@Test
-	void getAllItems_whenEmpty_shouldReturnEmptyList() throws Exception {
+	void getAllItemsEmpty() throws Exception {
 		mockMvc.perform(get("/api/items"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$", hasSize(0)));
 	}
 
 
+	// test for GET list with items present
 	@Test
-	void getAllItems_whenNotEmpty_shouldReturnList() throws Exception {
+	void getAllItemsPopulated() throws Exception {
 		itemRepository.save(new Item(null,"X","","NEW","x@y.com"));
 		itemRepository.save(new Item(null,"Y","","NEW","y@z.com"));
 
@@ -100,15 +103,17 @@ class InternshipApplicationTests {
 	}
 
 
+	// test for GET non-existing item returns 404
 	@Test
-	void getItemById_notFound_shouldReturn404() throws Exception {
+	void getItemByIdNotFound() throws Exception {
 		mockMvc.perform(get("/api/items/11522"))
 				.andExpect(status().isNotFound());
 	}
 
 
+	// test for successful item update
 	@Test
-	void updateItem_success() throws Exception {
+	void updateItemSuccess() throws Exception {
 		Item saved = itemRepository.save(new Item(null,"A","D","NEW","a@b.com"));
 		Item toUpdate = new Item(null,"B","D2","DONE","b@c.com");
 
@@ -122,8 +127,9 @@ class InternshipApplicationTests {
 	}
 
 
+	// test for updating non-existing item returns 404
 	@Test
-	void updateItem_notFound_shouldReturn404() throws Exception {
+	void updateItemNotFound() throws Exception {
 		mockMvc.perform(put("/api/items/999")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(new Item())))
@@ -131,8 +137,9 @@ class InternshipApplicationTests {
 	}
 
 
+	// test for deleting existing item and verifying removal
 	@Test
-	void deleteItem_success() throws Exception {
+	void deleteItemSuccess() throws Exception {
 		Item saved = itemRepository.save(new Item(null,"X",null,"NEW","x@y.com"));
 		mockMvc.perform(delete("/api/items/" + saved.getId()))
 				.andExpect(status().isNoContent());
@@ -141,15 +148,17 @@ class InternshipApplicationTests {
 	}
 
 
+	// test for deleting non-existing item returns 404
 	@Test
-	void deleteItem_notFound_shouldReturn404() throws Exception {
+	void deleteItemNotFound() throws Exception {
 		mockMvc.perform(delete("/api/items/12345"))
 				.andExpect(status().isNotFound());
 	}
 
 
+	// test for validation errors on create
 	@Test
-	void validationFailures_onCreate_shouldReturn400_andFieldErrors() throws Exception {
+	void createValidationFails() throws Exception {
 		Item bad = new Item(null, "", null, "", "");
 		String payload = objectMapper.writeValueAsString(bad);
 
@@ -163,6 +172,7 @@ class InternshipApplicationTests {
 	}
 
 
+	// test for valid email patterns
 	@Test
 	void validEmails() {
 		String[] validEmails = {
@@ -181,6 +191,7 @@ class InternshipApplicationTests {
 	}
 
 
+	// test for invalid email patterns
 	@Test
 	void invalidEmails() {
 		String[] invalidEmails = {
@@ -200,8 +211,9 @@ class InternshipApplicationTests {
 	}
 
 
+	// test for update with invalid email returns 400
 	@Test
-	void updateItem_withInvalidEmail_shouldReturn400_andFieldError() throws Exception {
+	void updateInvalidEmail() throws Exception {
 		Item saved = itemRepository.save(new Item(null, "A","D","NEW","a@b.com"));
 		Item badEmail = new Item(null, "A","D","NEW","not-an-email");
 		String payload = objectMapper.writeValueAsString(badEmail);
@@ -214,8 +226,9 @@ class InternshipApplicationTests {
 	}
 
 
+	// test for async endpoint processing items
 	@Test
-	void processItemsEndpoint_shouldReturnProcessedStatuses() throws Exception {
+	void processEndpointSuccess() throws Exception {
 		itemRepository.save(new Item(null, "Ana","descriere1","NEW","ana@gmail.com"));
 		itemRepository.save(new Item(null, "Maria","descriere2","NEW","mariaa1234@gmail.com"));
 
@@ -230,8 +243,9 @@ class InternshipApplicationTests {
 	}
 
 
+	// test for async endpoint returns empty list when no items
 	@Test
-	void processItemsEndpoint_whenNoItems_shouldReturnEmptyList() throws Exception {
+	void processEndpointEmpty() throws Exception {
 		MvcResult mvc = mockMvc.perform(get("/api/items/process"))
 				.andExpect(request().asyncStarted())
 				.andReturn();
@@ -242,16 +256,18 @@ class InternshipApplicationTests {
 	}
 
 
+	// test for service async call returns empty list
 	@Test
-	void processItemsAsync_withNoItems_returnsEmptyList() throws Exception {
+	void asyncProcessEmpty() throws Exception {
 		itemRepository.deleteAll();
 		List<Item> processed = service.processItemsAsync().get(5, TimeUnit.SECONDS);
 		assertThat(processed).isEmpty();
 	}
 
 
+	// test for service async call processes two items
 	@Test
-	void processItemsAsync_withTwoItems_returnsBothProcessed() throws Exception {
+	void asyncProcessTwoItems() throws Exception {
 		itemRepository.deleteAll();
 		itemRepository.save(new Item(null,"A","","NEW","a@b.com"));
 		itemRepository.save(new Item(null,"B","","NEW","b@c.com"));
@@ -262,8 +278,9 @@ class InternshipApplicationTests {
 	}
 
 
+	// test for service async call failing when repo throws exception
 	@Test
-	void processItemsAsync_whenRepoThrows_failsFuture() throws Exception {
+	void asyncProcessRepoError() throws Exception {
 		ItemRepository mockRepo = mock(ItemRepository.class);
 		SyncTaskExecutor syncExecutor = new SyncTaskExecutor();
 
@@ -271,10 +288,10 @@ class InternshipApplicationTests {
 		when(mockRepo.findById(1L)).thenThrow(new RuntimeException("uh-oh"));
 
 		ItemService svc = new ItemService(mockRepo, syncExecutor);
-		CompletableFuture<List<Item>> fut = svc.processItemsAsync();
+		CompletableFuture<List<Item>> futureL = svc.processItemsAsync();
 
 		assertThrows(ExecutionException.class,
-				() -> fut.get(2, TimeUnit.SECONDS),
+				() -> futureL.get(2, TimeUnit.SECONDS),
 				"Expected the batch future to be completed exceptionally");
 	}
 }

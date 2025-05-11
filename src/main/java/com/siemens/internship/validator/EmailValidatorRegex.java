@@ -4,6 +4,10 @@ import com.siemens.internship.model.Item;
 import org.springframework.stereotype.Component;
 import java.util.regex.Pattern;
 
+/**
+ * I made this a @Component so Spring can inject email validation
+ * Added EMAIL_PATTERN to centralize regex-based checks
+ */
 
 @Component
 public class EmailValidatorRegex implements Validator<Item>{

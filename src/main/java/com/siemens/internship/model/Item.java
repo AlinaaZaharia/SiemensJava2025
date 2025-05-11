@@ -8,6 +8,11 @@ import jakarta.persistence.Id;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
+/**
+ * I added @NotBlank on name, status, and email in order to never get empty values
+ * Any email format checks happen in EmailValidatorRegex ('validator' package)
+*/
+
 @Entity
 @Data
 @AllArgsConstructor
